@@ -1,0 +1,69 @@
+# --- OS / Editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+*.egg
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+neoagf-venv/
+.Python
+pip-wheel-metadata/
+
+# Notebooks (if any)
+.ipynb_checkpoints/
+
+# --- Data / Logs ---
+*.log
+*.tmp
+*.bak
+*.csv
+# Keep the pattern below for recorded EEG CSVs
+# eeg_data_*.csv
+
+# --- Arduino / ESP32 / PlatformIO ---
+# Common compiled outputs
+*.elf
+*.bin
+*.hex
+*.map
+*.lst
+
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+.ccls-cache/
+.clang_complete
+.gcc-flags.json
+
+# Arduino CLI/IDE (rare local caches)
+.arduino-build/
+.arduino-sketches/
+
+# --- Misc ---
+# Local environment files
+.env
+.env.*
+*.local
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+*.7z

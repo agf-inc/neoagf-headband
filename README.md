@@ -33,6 +33,8 @@ Use at your own risk. See Safety section below.
 Notes:
 - The combined firmware targets XIAO ESP32C3 and advertises BLE name `NEOAGF`.
 
+For a deep dive into the hardware specifications of our v1 board go here: [https://oshwlab.com/shreeramlive/bio-addac](https://oshwlab.com/shreeramlive/bio-addac)
+
 ## Firmware: Combined EEG + tDCS (Main)
 
 File: `esp32/neoagf_eeg_tdcs_combo.ino`

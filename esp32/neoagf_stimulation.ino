@@ -1,6 +1,5 @@
 /*
  * GP8413 DAC EEG Signal Generator - Memory Optimized
- * For Seeeduino Nano + Grove I2C
  */
 
  #include <Wire.h>

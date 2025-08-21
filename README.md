@@ -1,9 +1,10 @@
 # NEOAGF Headband (WIP)
 
-A work-in-progress repository for the NEOAGF headband: a tACS stimulator and EEG reader. The repo currently contains:
+A work-in-progress repository for the NEOAGF headband: a tACS/tDCS stimulator and EEG reader. The repo currently contains:
 
 - ESP32 firmware to acquire EEG via ADS1015 and stream filtered data over BLE
 - A serial-controlled signal generator for a GP8413 DAC (for stimulation signal prototyping)
+- A GP8302 DAC driver for tDCS current control
 - A Python BLE client for live visualization, band-power analysis, and CSV logging
 - A small helper script to design Butterworth filters
 
@@ -11,6 +12,7 @@ Use at your own risk. See Safety section below.
 
 ## Repository Structure
 
+- `esp32/neoagf_eeg_tdcs_combo.ino` — MAIN ESP32C3 firmware: BLE EEG streaming + tDCS current control via GP8302. Advertises as `NEOAGF` with unified EEG and control characteristics.
 - `esp32/neoagf_bt_eeg_reader.ino` — ESP32C3 BLE server that samples EEG from ADS1015, filters it in real time (DC block, 50/60 Hz notch, 45 Hz LP), and notifies a BLE characteristic.
 - `esp32/neoagf_stimulation.ino` — GP8413 DAC signal generator with a serial command interface for frequency/amplitude presets in EEG bands (for tACS prototyping). 
 - `eeg_ble_client_fixed.py` — Python client using Bleak to discover/connect, plot basic dashboards, compute band powers, and log data to CSV.
@@ -25,11 +27,42 @@ Use at your own risk. See Safety section below.
   - BioAmp EXG Pill + EEG electrodes
 - Stimulation (prototype signal generation):
   - GP8413 (GP8xxx family) DAC module
+  - GP8302 DAC driver for tDCS current control
   - I2C wiring per board; code currently configures `Wire.setPins(7, 8)`
 
 Notes:
-- The BLE firmware explicitly targets XIAO ESP32C3 and initializes BLE as `ESP32_EEG`.
-- The stimulation sketch’s header mentions Seeeduino Nano + Grove I2C; adapt wiring/board selection as needed. The code uses the DFRobot GP8xxx library and a 15-bit DAC range.
+- The combined firmware targets XIAO ESP32C3 and advertises BLE name `NEOAGF`.
+
+## Firmware: Combined EEG + tDCS (Main)
+
+File: `esp32/neoagf_eeg_tdcs_combo.ino`
+
+Features:
+- Unified BLE device name: `NEOAGF`
+- Service UUID: `f47ac10b-58cc-4372-a567-0e02b2c3d479`
+- EEG Characteristic UUID: `f47ac10b-58cc-4372-a567-0e02b2c3d480` (notifications of filtered EEG voltage as text float)
+- Control Characteristic UUID: `f47ac10b-58cc-4372-a567-0e02b2c3d481` (read/write/notify)
+- Modes: `NO_OP` (default), `EEG` (acquire + stream), `STIM` (tDCS current control)
+- EEG: ADS1015 @ 250 Hz, DC blocker, 50/60 Hz notch, 45 Hz low-pass
+- tDCS: GP8302 with 0–25 mA range, 1 Hz ramping toward target current, adjustable step size
+- LEDs:
+  - PWR LED blinks while advertising; steady ON when connected
+  - MODE LED steady ON in EEG; slow blink in STIM; OFF in NO_OP
+
+Control commands (write to Control characteristic):
+- `MODE EEG` | `MODE STIM` | `MODE NO_OP`
+- `I=<mA>` (absolute set, 0–25)
+- `I+` / `I-` (adjust by step)
+- `STEP=<mA>` (step size, 0.1–5.0; default 0.1)
+- `STATUS?` (JSON snapshot with bt/mode/I/target)
+
+Build & Flash (Arduino IDE):
+1. Board: Seeed XIAO ESP32C3
+2. Libraries: ESP32 core, Adafruit ADS1X15, DFRobot_GP8302
+3. Open `esp32/neoagf_eeg_tdcs_combo.ino` and upload
+4. Verify advertising name `NEOAGF` and connect with the client
+
+See `BLE_CLIENT.md` for the full GATT layout, data formats, and example command sequences.
 
 ## Firmware: EEG over BLE
 
@@ -93,10 +126,11 @@ Important: This is for bench/prototyping. Any use for human stimulation must inc
 File: `eeg_ble_client_fixed.py`
 
 What it does:
-- Discovers the device (looks for names containing `ESP32_EE`, which matches `ESP32_EEG`)
-- Subscribes to notifications and logs values to `eeg_data_YYYYMMDD_HHMMSS.csv`
+- Discovers the device named `NEOAGF`
+- Subscribes to EEG and Control notifications; logs EEG to `eeg_data_YYYYMMDD_HHMMSS.csv`
 - Computes relative band powers (delta/theta/alpha/beta/gamma < 100 Hz)
-- Displays a simple live dashboard (band powers and basic signal stats)
+- Displays a live dashboard (band powers, stats, event timeline, tDCS current)
+- Uses UUIDs matching the combined firmware; see `BLE_CLIENT.md`
 
 ## Installation
 
@@ -153,7 +187,7 @@ The client will:
 
 ### Interactive Commands
 
-The client supports both CLI and file-based command input:
+The client supports both CLI and file-based command input (default firmware mode is `NO_OP`; switch to `EEG` or `STIM` as needed):
 
 #### CLI Commands (Interactive)
 Type commands directly in the terminal:

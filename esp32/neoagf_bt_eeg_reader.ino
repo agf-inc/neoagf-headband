@@ -28,7 +28,8 @@
  // EEG Configuration
  #define SAMPLE_RATE 250     // Hz
  #define BAUD_RATE 115200
- #define LED_PIN 5           // LED for status indication
+ #define LED_STATUS_PIN 5           // LED for status indication
+ #define LED_PWR_PIN 4
  
  // ADS1015 Configuration
  Adafruit_ADS1015 ads; // ADS1015 object
@@ -47,13 +48,13 @@
  class MyServerCallbacks: public BLEServerCallbacks {
      void onConnect(BLEServer* pServer) {
        deviceConnected = true;
-       digitalWrite(LED_PIN, HIGH); // LED on when connected
+       digitalWrite(LED_STATUS_PIN, HIGH); // LED on when connected
        Serial.println("Client connected");
      };
  
      void onDisconnect(BLEServer* pServer) {
        deviceConnected = false;
-       digitalWrite(LED_PIN, LOW); // LED off when disconnected
+       digitalWrite(LED_STATUS_PIN, LOW); // LED off when disconnected
        Serial.println("Client disconnected");
      }
  };
@@ -116,11 +117,29 @@ struct DCBlocker {
 // Global filter instances
 static Biquad notch50, notch60, lp1, lp2;
 static DCBlocker dcblk;
+
+#define PWR_IO 0
+#define PWR_BTN 1
+
+
  
  void setup() {
+   pinMode(PWR_IO, OUTPUT);
+   pinMode(PWR_BTN, INPUT_PULLUP);
+   digitalWrite(PWR_IO, HIGH);
+
+   delay(100);
+
    Serial.begin(BAUD_RATE);
-   pinMode(LED_PIN, OUTPUT);
    
+   pinMode(LED_STATUS_PIN, OUTPUT);
+   pinMode(LED_PWR_PIN, OUTPUT);
+
+   digitalWrite(LED_PWR_PIN, LOW); 
+   digitalWrite(LED_STATUS_PIN, LOW); 
+   
+   delay(200);
+
    Serial.println("Starting EEG BLE Server...");
    Wire.setPins(7, 8);
    // Initialize I2C and ADS1015
@@ -170,6 +189,9 @@ static DCBlocker dcblk;
    
    Serial.println("EEG BLE Server ready!");
    Serial.println("Waiting for client connection...");
+
+   delay(200);
+   digitalWrite(LED_PWR_PIN, HIGH); 
 
    // Initialize filters
    // DC blocker already has alpha for ~0.5 Hz at 250 Hz

@@ -98,21 +98,122 @@ What it does:
 - Computes relative band powers (delta/theta/alpha/beta/gamma < 100 Hz)
 - Displays a simple live dashboard (band powers and basic signal stats)
 
-Dependencies (Python 3.10+ recommended):
-- bleak
-- numpy
-- scipy
-- matplotlib
+## Installation
 
-Quick start:
+### Prerequisites
+- Python 3.10+ recommended
+- ESP32 Arduino development environment (for firmware)
+- Hardware components listed in Hardware section
+
+### Python Environment Setup
+
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd neoagf
+   ```
+
+2. **Create and activate virtual environment:**
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ```
+
+3. **Install dependencies:**
+   ```bash
+   # For EEG client only
+   pip install bleak numpy scipy matplotlib
+   
+   # Or install all dependencies for ML training
+   pip install -r requirements-eeg.txt
+   ```
+
+### Firmware Setup
+
+1. **Install Arduino IDE** and ESP32 board support
+2. **Install required libraries:**
+   - Adafruit ADS1X15
+   - DFRobot_GP8XXX (for stimulation firmware)
+3. **Flash firmware** to your ESP32C3 device
+
+## Usage
+
+### Running the EEG Client
+
+**Basic usage:**
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install bleak numpy scipy matplotlib
 python eeg_ble_client_fixed.py
 ```
 
-If you already have `neoagf-venv/`, you can use it instead; ensure packages above are installed.
+The client will:
+- Scan for NEOAGF BLE devices
+- Connect automatically when found
+- Start real-time data collection and visualization
+- Save data to timestamped CSV files
+
+### Interactive Commands
+
+The client supports both CLI and file-based command input:
+
+#### CLI Commands (Interactive)
+Type commands directly in the terminal:
+- `STATUS?` - Get current device status
+- `MODE EEG` - Switch to EEG recording mode
+- `MODE STIM` - Switch to stimulation mode  
+- `MODE NO_OP` - Switch to no-operation mode
+- `I=<value>` - Set stimulation current (e.g., `I=5.0` for 5mA)
+- `I+` - Increase current by step amount
+- `I-` - Decrease current by step amount
+- `STEP=<value>` - Set current step size
+
+#### File-Based Commands (Fallback)
+Append commands to `commands.txt` file:
+```bash
+echo "STATUS?" >> commands.txt
+echo "MODE STIM" >> commands.txt
+echo "I=10" >> commands.txt
+```
+
+### Data Output
+
+**CSV Files:**
+- Format: `eeg_data_YYYYMMDD_HHMMSS.csv`
+- Columns: `timestamp,sample_number,eeg_value`
+
+**Event Summaries:**
+- Format: `event_summary_YYYYMMDD_HHMMSS.txt`
+- Contains counts of detected events (Eyes Closed/Open, Focus levels)
+
+**Log Files:**
+- `neoagf_client.log` - Detailed application logs with rotating backup
+
+### Real-time Visualization
+
+The client displays a 4-panel dashboard:
+1. **EEG Band Powers** - Relative power in Delta, Theta, Alpha, Beta, Gamma bands
+2. **Signal Statistics** - Min, Max, Average, RMS voltage values
+3. **Event Timeline** - Detected eye state and focus events
+4. **Stimulation Current** - Current vs target stimulation levels
+
+### GP8413 DAC Signal Generator
+
+For stimulation prototyping, use the serial interface at 115200 baud:
+
+**Commands:**
+- `0`-`4` - Select EEG band presets (Delta 2Hz, Theta 6Hz, Alpha 10Hz, Beta 20Hz, Gamma 40Hz)
+- `f<value>` - Set frequency in Hz (0.1-100, e.g., `f12.5`)
+- `a<value>` - Set amplitude in mV (0.1-100.0, e.g., `a50.0`)
+- `+`/`-` - Increase/decrease amplitude
+- `help` - Show command help
+- `test` - Run DAC step test
+
+**Example session:**
+```
+> help
+> 2        # Select Alpha band (10 Hz)
+> a25.0    # Set 25mV amplitude
+> f8.5     # Adjust to 8.5 Hz
+```
 
 ## Helper: Filter Coefficients
 

@@ -29,12 +29,11 @@ pip-wheel-metadata/
 .ipynb_checkpoints/
 
 # --- Data / Logs ---
-*.log
 *.tmp
 *.bak
-*.csv
+*.log
 # Keep the pattern below for recorded EEG CSVs
-# eeg_data_*.csv
+eeg_data_*.csv
 
 # --- Arduino / ESP32 / PlatformIO ---
 # Common compiled outputs

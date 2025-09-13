@@ -6,7 +6,7 @@
  * - BLE Control characteristic for mode and tDCS current control
  * - LEDs: PWR (BT status), MODE (operation mode)
  *   - PWR LED blinks while advertising, steady ON when connected
- *   - MODE LED steady in EEG mode, slow pulse in STIM mode
+ *   - MODE LED steady in EEG mode, slow pulse in STIM mode)
  */
 
  #include <Arduino.h>
@@ -18,27 +18,28 @@
  #include <BLEUtils.h>
  #include <BLE2902.h>
  #include <nvs_flash.h>
- 
+ #include "esp_sleep.h"
+
  // ===== Pins =====
  #define PWR_IO 0         // Power rail control (optional)
  #define PWR_BTN 1        // Power button (INPUT_PULLUP)
  #define LED_PWR_PIN 5    // Power + Bluetooth status LED (matches original LED_STATUS_PIN)
  #define LED_MODE_PIN 4   // Mode LED (EEG vs STIM)
- 
+
  // ===== I2C (shared) =====
  #define I2C_SDA_PIN 7
  #define I2C_SCL_PIN 8
- 
+
  // ===== BLE UUIDs =====
 #define SERVICE_UUID            "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 #define EEG_CHAR_UUID           "f47ac10b-58cc-4372-a567-0e02b2c3d480"
 #define CONTROL_CHAR_UUID       "f47ac10b-58cc-4372-a567-0e02b2c3d481"
  #define BLE_ADVERTISING_NAME    "NEOAGF"
- 
+
  // ===== EEG Config =====
  #define SAMPLE_RATE 250
  Adafruit_ADS1015 ads;
- 
+
  // ===== tDCS (GP8302) =====
  DFRobot_GP8302 tdcs;
  static float targetCurrent_mA = 0.0f;
@@ -48,20 +49,20 @@
  static const float kMinCurrent_mA = 0.0f;
  static const unsigned long kRampIntervalMs = 1000UL; // every 1s
  static unsigned long lastRampMs = 0;
- 
+
  // ===== BLE Globals =====
  BLEServer* pServer = nullptr;
  BLECharacteristic* pEEGChar = nullptr;
  BLECharacteristic* pCtrlChar = nullptr;
  bool deviceConnected = false;
  bool oldDeviceConnected = false;
- 
+
  // ===== Modes =====
  enum class OpMode { NO_OP = 0, EEG = 1, STIM = 2 };
  static OpMode mode = OpMode::NO_OP;
 static bool adsReady = false;
 static bool tdcsReady = false;
- 
+
  // ===== Filtering utilities (from neoagf_bt_eeg_reader.ino) =====
  struct Biquad {
    float b0{1}, b1{0}, b2{0}, a0{1}, a1{0}, a2{0};
@@ -588,8 +589,66 @@ static void setMode(OpMode m) {
     digitalWrite(LED_MODE_PIN, LOW);
   }
 
-  // Optional: simple button scaffold (no action bound yet)
-  // int btn = digitalRead(PWR_BTN);
-  // (future) short/long press actions
+  // Power button: hold for >= 3 seconds to power down
+  {
+    static bool btnPrevPressed = false;
+    static unsigned long btnPressStartMs = 0;
+    int btnRaw = digitalRead(PWR_BTN); // INPUT_PULLUP: pressed == LOW
+    bool pressed = (btnRaw == LOW);
+
+    if (pressed) {
+      if (!btnPrevPressed) {
+        btnPressStartMs = nowMs;
+      }
+      btnPrevPressed = true;
+
+      if (nowMs - btnPressStartMs >= 3000UL) {
+        Serial.println("[PWR] Long press detected (>=3s): powering down...");
+
+        // Graceful shutdown of subsystems
+        targetCurrent_mA = 0.0f;
+        if (mode == OpMode::STIM) {
+          if (tdcsReady) {
+            tdcs.output(0);
+          }
+          deinitTDCS();
+        }
+        if (pServer) {
+          BLEDevice::deinit(true);
+        }
+        deviceConnected = false;
+        oldDeviceConnected = false;
+
+        // Turn off indicators
+        digitalWrite(LED_MODE_PIN, LOW);
+        digitalWrite(LED_PWR_PIN, LOW);
+
+        // If power rail control exists, drop it
+        digitalWrite(PWR_IO, LOW);
+        delay(100);
+
+        // Enter deep sleep as fallback if rail is not cut
+        esp_deep_sleep_start();
+      }
+    } else {
+      // Button released: check for short press (< 2s) to toggle STIM 0.6 mA
+      if (btnPrevPressed && btnPressStartMs != 0) {
+        unsigned long heldMs = nowMs - btnPressStartMs;
+        if (heldMs < 2000UL) {
+          // Toggle stimulation
+          if (mode != OpMode::STIM || targetCurrent_mA <= 0.0f) {
+            Serial.println("[BTN] Short press: STIM ON to 0.6 mA");
+            setMode(OpMode::STIM);
+            targetCurrent_mA = clampf(0.6f, kMinCurrent_mA, kMaxCurrent_mA);
+          } else {
+            Serial.println("[BTN] Short press: STIM OFF");
+            targetCurrent_mA = 0.0f;
+            setMode(OpMode::NO_OP);
+          }
+        }
+      }
+      btnPrevPressed = false;
+      btnPressStartMs = 0;
+    }
+  }
 }
- 

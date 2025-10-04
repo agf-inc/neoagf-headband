@@ -1,6 +1,6 @@
-# NEOAGF Headband (WIP)
+# NEMES Headband (WIP)
 
-A work-in-progress repository for the NEOAGF headband: a tACS/tDCS stimulator and EEG reader. The repo currently contains:
+A work-in-progress repository for the NEMES headband: a tACS/tDCS stimulator and EEG reader. The repo currently contains:
 
 - ESP32 firmware to acquire EEG via ADS1015 and stream filtered data over BLE
 - A serial-controlled signal generator for a GP8413 DAC (for stimulation signal prototyping)
